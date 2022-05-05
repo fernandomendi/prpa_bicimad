@@ -1,0 +1,13 @@
+OBJETIVO PRINCIPAL: buscar una posición posiblemente buena para una nueva parada de bicis
+
+Cosas para hacer:
+- leer fichero json y devolver lista de paradas (.map(lambda x: Stop(x["oid"], x["lat"], x["lon"])))
+- crear rectangulo de min max lat lon
+    - cogemos puntos del rectangulo pero solo nos quedamos con los que tengan alguna estacion a distancia menor que n (.filter(close_to_stop))
+        - close_to_stop dev:bool
+        - crear funcion distancia entre dos puntos dado sus latlon
+    - calculamos el fitness de estos puntos restantes
+        - ML oka manda
+    - nos quedamos con el mas fit (tira 100kg en banca)
+
+- Para calcular el trafico de una stop, contar la suma del numero de bicis q se sacan y se dejan en un dia (sumamos todos los dias) -> obtenemos fitness anual/mensual
