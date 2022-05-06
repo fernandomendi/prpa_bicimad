@@ -4,10 +4,10 @@ Cosas para hacer:
 - leer fichero json y devolver lista de paradas (.map(lambda x: Stop(x["oid"], x["lat"], x["lon"])))
 - crear rectangulo de min max lat lon
     - cogemos puntos del rectangulo pero solo nos quedamos con los que tengan alguna estacion a distancia menor que n (.filter(close_to_stop))
-        - close_to_stop dev:bool
+        - close_to_stop dev:bool (a lo mejor nos interesa hacer una función que nos devuelva el número de paradas cercanas y para comprobar que tiene paradas cercanas, solo comprobamos si ese numero es positivo)
         - crear funcion distancia entre dos puntos dado sus latlon
     - calculamos el fitness de estos puntos restantes
-        - ML oka manda
-    - nos quedamos con el mas fit (tira 100kg en banca)
+        - posiblemente podemos tomar como funcion: (cantidad de trafico en el area) / (numero de paradas cercanas)
+    - nos quedamos con el mas fit que tenga menos paradas cercanas (posiblemente tomar uno entre el otro y tomar max/min)
 
-- Para calcular el trafico de una stop, contar la suma del numero de bicis q se sacan y se dejan en un dia (sumamos todos los dias) -> obtenemos fitness anual/mensual
+- Para calcular el trafico de una stop, contar la suma del numero de bicis q se sacan y se dejan en un dia (sumamos todos los dias) -> obtenemos fitness anual/mensual para tener datos más fiables
