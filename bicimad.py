@@ -1,7 +1,14 @@
 from math import acos, cos, radians, sin
 import random
+import numpy as np
+import pandas as pd
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, lit
+
+from pyspark.ml.regression import LinearRegression
+from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.evaluation import RegressionEvaluator
+
 
 def get_min_max_lat_lon(df):
     min_lat = df.agg({"latitude":"min"}).head()["min(latitude)"]
@@ -58,8 +65,63 @@ def get_stops(spark, month_ref):
     stops_df = stations_df.join(trafic_df, on=["id"], how="left_outer")
     return stops_df
 
+def get_learning_df(df):
+    #df = sc.parallelize(df).toDF()
+    learning_df = df.rdd.map(lambda stop: n_closest_stops(df, stop))
+    return learning_df.toDF()
+    
+def n_closest_stops(df, stop, n = 3):
+    df2 = df.alias('df2') #copia
+    distances = df2.where(df2.id != stop[0]).map(lambda stop2: (distance_sphere([stop[1], stop[2]], [stop2[1], stop2[2]])))
+    out = distances.orderBy(df2[0]).take(3).flatten
+    return out
+
+def get_learning_df2(df):
+    df = np.array(df.collect())
+    print(df.shape)
+    print(df[:,3]) #revisar!!
+    df = np.array([i for i in df if i[3] != None]) #dropea filas con None
+    print(df.shape)
+    learning_df = []
+    for i in df:
+        row = n_closest_stops2(df, i)
+        row.append(i[3])
+        learning_df.append(row)
+    return learning_df
+    
+def n_closest_stops2(df, stop, n = 3):
+    df2 = np.copy(df) #copia
+    dists = lambda stop2: [distance_sphere([stop[1], stop[2]], [stop2[1], stop2[2]]), stop2[3]]
+    d = np.array([dists(i) for i in df2])
+    d = d[d[:,0].argsort()]
+    #if stop[0] == 50:
+    #    print(d)
+    return d[1:n+1,:].flatten().tolist()
+    
+    
+
 if __name__ == "__main__":
     spark = SparkSession.builder.getOrCreate()
     sc = spark.sparkContext
     stops_df = get_stops(spark, "202106")
     stops_df.show()
+    learning_df = pd.DataFrame(get_learning_df2(stops_df))
+    learning_df = spark.createDataFrame(learning_df, schema = ["d1", "t1", "d2", "t2", "d3", "t3", "t"])
+    #learning_df.show(3)
+    
+    vectorAssembler = VectorAssembler(inputCols = ['d1', 't1', 'd2', 't2', 'd3', 't3'], outputCol = 'features')
+    learning_df = vectorAssembler.transform(learning_df)
+    learning_df = learning_df.select(['features', 't'])
+    #learning_df.show(3)
+    
+    splits = learning_df.randomSplit([0.7, 0.3])
+    train_df = splits[0]
+    test_df = splits[1]
+    
+    lr = LinearRegression(featuresCol = 'features', labelCol='t', maxIter=10, regParam=0.3, elasticNetParam=0.8)
+    lr_model = lr.fit(train_df)
+
+    lr_predictions = lr_model.transform(test_df)
+    lr_predictions.select("prediction","t","features").show(5)
+    lr_evaluator = RegressionEvaluator(predictionCol="prediction", labelCol="t",metricName="r2")
+    print("R Squared (R2) on test data = %g" % lr_evaluator.evaluate(lr_predictions))
