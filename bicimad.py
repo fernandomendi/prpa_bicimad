@@ -17,11 +17,11 @@ def get_min_max_lat_lon(df):
     max_lon = df.agg({"longitude":"max"}).head()["max(longitude)"]
     return min_lat, max_lat, min_lon, max_lon
 
-def generate_points(sc, n, min_lat, max_lat, min_lon, max_lon):
+def generate_points(sc, n, mins_maxs): # mins_maxs = (min_lat, max_lat, min_lon, max_lon)
     pts = []
     for _ in range(n):
-        lat = random.uniform(min_lat, max_lat)
-        lon = random.uniform(min_lon, max_lon)
+        lat = random.uniform(mins_maxs[0], mins_maxs[1])
+        lon = random.uniform(mins_maxs[2], mins_maxs[3])
         pts.append((lat, lon))
     return sc.parallelize(pts)
 
@@ -40,12 +40,12 @@ def distance_sphere(pt1, pt2): # GREAT CIRCLE FORMULA, returns distance in km
 def get_stop_trafic(spark, filename):
     movements_df = spark.read.json(filename)
     plug_count = movements_df.\
-        withColumnRenamed("idplug_base", "id").\
+        withColumnRenamed("idplug_station", "id").\
         groupBy("id").\
         count().\
         withColumnRenamed("count", "plug_count")
     unplug_count = movements_df.\
-        withColumnRenamed("idunplug_base", "id").\
+        withColumnRenamed("idunplug_station", "id").\
         groupBy("id").\
         count().\
         withColumnRenamed("count", "unplug_count")
@@ -76,11 +76,19 @@ def n_closest_stops(df, stop, n = 3):
     out = distances.orderBy(df2[0]).take(3).flatten
     return out
 
+
+def n_closest_stops_NEW(df, stopid, n=3):
+    ptid = get_coords_from_stopid(df, stopid)
+    return df.rdd.\
+        sortBy(lambda row: distance_sphere(ptid, (row["latitude"], row["longitude"]))).\
+        take(n+1)[1:]
+
+
 def get_learning_df2(df):
     df = np.array(df.collect())
     print(df.shape)
     print(df[:,3]) #revisar!!
-    df = np.array([i for i in df if i[3] != None]) #dropea filas con None
+    # df = np.array([i for i in df if i[3] != None]) #dropea filas con None
     print(df.shape)
     learning_df = []
     for i in df:
