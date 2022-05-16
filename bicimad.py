@@ -12,7 +12,7 @@ from pyspark.ml.regression import LinearRegression
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.evaluation import RegressionEvaluator
 
-def distance_sphere(pt1, pt2): # GREAT CIRCLE FORMULA, returns distance in km
+def distance_sphere(pt1, pt2): # Devuelve la distancia en km entre dos puntos dadas sus coordenadas
     pt1 = tuple(map(radians, pt1))
     pt2 = tuple(map(radians, pt2))
     x = sin(pt1[0]) * sin(pt2[0]) + cos(pt1[0]) * cos(pt2[0]) * cos(pt1[1] - pt2[1])
@@ -20,7 +20,7 @@ def distance_sphere(pt1, pt2): # GREAT CIRCLE FORMULA, returns distance in km
         x = 1
     return 6371 * (acos(x))
 
-def get_stop_trafic(spark: SparkSession, filename):
+def get_stop_trafic(spark: SparkSession, filename): # Devuelve un df con el trafico de cada parada
     movements_df = spark.read.json(filename)
     plug_count = movements_df.\
         withColumnRenamed("idplug_station", "id").\
@@ -39,7 +39,7 @@ def get_stop_trafic(spark: SparkSession, filename):
         select(col("id"), col("trafic"))
     return trafic_df
 
-def get_stops(spark: SparkSession, month_ref):
+def get_stops(spark: SparkSession, month_ref): #Devuelve un df con la posicion y trafico de cada parada
     df = spark.read.json(f"data/{month_ref}_stations.json")
     stations_df = spark.\
         createDataFrame(df.first()["stations"]).\
@@ -48,7 +48,7 @@ def get_stops(spark: SparkSession, month_ref):
     stops_df = stations_df.join(trafic_df, on=["id"], how="left_outer")
     return stops_df
 
-def get_learning_df(df):
+def get_learning_df(df): # Genera el df de entrada del modelo de ML
     df = np.array(df.where(col("trafic").isNotNull()).collect())
     learning = []
     for i in df:
@@ -59,7 +59,7 @@ def get_learning_df(df):
         learning.append(row)
     return spark.createDataFrame(pd.DataFrame(learning), schema=["lat", "lon", "dist*trafic1", "dist*trafic2", "dist*trafic3", "trafic"])
     
-def n_closest_stops(df, pt, n=3):
+def n_closest_stops(df, pt, n=3): #Devuelve las n paradas más cercanas a un punto dadas sus coordenadas
     df2 = np.copy(df)
     dists = lambda stop: [distance_sphere(pt, [stop[1], stop[2]]) * stop[3]]
     d = np.array([dists(i) for i in df2])
@@ -73,7 +73,7 @@ def get_min_max_lat_lon(df):
     max_lon = df.agg({"longitude":"max"}).head()["max(longitude)"]
     return min_lat, max_lat, min_lon, max_lon
 
-def pt_in_hull(pt, hull, eps=10**(-4)):
+def pt_in_hull(pt, hull, eps=10**(-4)): # Evalua si un punto esta en el area de servicio de BiciMad
     return all((np.dot(eq[:-1], pt) + eq[-1] <= eps) for eq in hull.equations)
 
 def generate_points(sc: SparkContext, n, df): # mins_maxs = (min_lat, max_lat, min_lon, max_lon)
@@ -88,7 +88,7 @@ def generate_points(sc: SparkContext, n, df): # mins_maxs = (min_lat, max_lat, m
             i += 1
     return sc.parallelize(pts)
 
-def get_mesh(sc: SparkContext, n, df):
+def get_mesh(sc: SparkContext, n, df): # Genera un df con los puntos a evaluar
     pts = np.array(generate_points(sc, n, df).collect())
     df_ = np.array(df.where(col("trafic").isNotNull()).collect())
     testing = []
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     lr_evaluator = RegressionEvaluator(predictionCol="prediction", labelCol="trafic",metricName="r2")
     print(f"R Squared (R2) on test data = {lr_evaluator.evaluate(lr_predictions)}")
 
-    # TESTING THE MODEL --------------------------------------------------------------------------
+    # APPLYING THE MODEL --------------------------------------------------------------------------
 
     mesh = get_mesh(sc, 10**5, stops_df)
     mesh_test = feature_assembler.transform(mesh).select(["features", "lat", "lon"])
