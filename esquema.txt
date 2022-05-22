@@ -11,3 +11,9 @@ Cosas para hacer:
     - nos quedamos con el mas fit que tenga menos paradas cercanas (posiblemente tomar uno entre el otro y tomar max/min)
 
 - Para calcular el trafico de una stop, contar la suma del numero de bicis q se sacan y se dejan en un dia (sumamos todos los dias) -> obtenemos fitness anual/mensual para tener datos más fiables
+
+LINKS PARA LOS DATOS:
+https://opendata.emtmadrid.es/Datos-estaticos/Datos-generales-(1)
+
+- paradas:    Situación estaciones bicimad por día y hora de Junio de 2021
+- trayectos:  Datos de uso Junio 2021
